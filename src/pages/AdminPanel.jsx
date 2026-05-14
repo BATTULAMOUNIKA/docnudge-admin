@@ -5,6 +5,7 @@ export default function AdminPanel() {
   const [tab, setTab] = useState("clinics");
   const [clinics, setClinics] = useState([]);
   const [staff, setStaff] = useState([]);
+  const [demoRequests, setDemoRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddClinic, setShowAddClinic] = useState(false);
   const [editingClinic, setEditingClinic] = useState(null);
@@ -18,9 +19,14 @@ export default function AdminPanel() {
   async function loadAll() {
     setLoading(true);
     try {
-      const [clinicResponse, userResponse] = await Promise.all([API.get("/clinics"), API.get("/admin/users")]);
+      const [clinicResponse, userResponse, demoResponse] = await Promise.all([
+        API.get("/clinics"),
+        API.get("/admin/users"),
+        API.get("/admin/demo-requests").catch(() => ({ data: [] })),
+      ]);
       setClinics(clinicResponse.data || []);
       setStaff(userResponse.data || []);
+      setDemoRequests(demoResponse.data || []);
     } catch (error) {
       console.error(error);
     } finally {
@@ -32,6 +38,8 @@ export default function AdminPanel() {
   const revenue = clinics.reduce((total, clinic) => total + (clinic.plan === "pro" ? 1999 : clinic.plan === "basic" ? 999 : 0), 0);
   const trial = clinics.filter((clinic) => clinic.plan === "trial" || !clinic.plan).length;
   const inactive = clinics.filter((clinic) => clinic.status === "inactive").length;
+  const today = new Date().toISOString().slice(0, 10);
+  const newLeadsToday = demoRequests.filter((item) => item.created_at?.slice(0, 10) === today).length;
 
   async function handleDeleteClinic(clinic) {
     if (!window.confirm(`Delete ${clinic.name}? Clinics with patients, staff, or appointments cannot be deleted.`)) return;
@@ -47,8 +55,8 @@ export default function AdminPanel() {
     <div style={adminStyles.page}>
       <div style={adminStyles.header}>
         <div>
-          <h1 style={adminStyles.title}>Clinics</h1>
-          <p style={adminStyles.sub}>Manage clinic locations, staff accounts and billing across DocNudge</p>
+          <h1 style={adminStyles.title}>Owner Console</h1>
+          <p style={adminStyles.sub}>Manage clinics, staff accounts, billing and inbound demo requests across DocNudge</p>
         </div>
         <button style={adminStyles.btnPrimary} onClick={() => setShowAddClinic(true)}>
           <i className="ti ti-plus" style={{ fontSize: 14 }} /> Add clinic
@@ -59,11 +67,13 @@ export default function AdminPanel() {
         <StatCard label="Total clinics" value={clinics.length} icon="ti-building" color="#0C447C" bg="#E6F1FB" />
         <StatCard label="Paying clinics" value={paying} icon="ti-check-circle" color="#085041" bg="#E1F5EE" />
         <StatCard label="Staff accounts" value={staff.length} icon="ti-users" color="#444441" bg="#F1EFE8" />
+        <StatCard label="Demo requests" value={demoRequests.length} icon="ti-mail-opened" color="#7C3AED" bg="#F3E8FF" />
+        <StatCard label="New today" value={newLeadsToday} icon="ti-sparkles" color="#A16207" bg="#FEF3C7" />
         <StatCard label="Monthly revenue" value={`Rs ${revenue.toLocaleString("en-IN")}`} icon="ti-currency-rupee" color="#085041" bg="#E1F5EE" />
       </div>
 
       <div style={adminStyles.tabs}>
-        {[["clinics", "All clinics"], ["staff", "Staff accounts"], ["billing", "Billing"]].map(([key, label]) => (
+        {[["clinics", "All clinics"], ["staff", "Staff accounts"], ["billing", "Billing"], ["demo", "Demo requests"]].map(([key, label]) => (
           <button key={key} style={{ ...adminStyles.tab, ...(tab === key ? adminStyles.tabActive : {}) }} onClick={() => setTab(key)}>
             {label}
           </button>
@@ -126,7 +136,7 @@ export default function AdminPanel() {
           <div style={adminStyles.credentialGuide}>
             <div>
               <strong>Create clinic credentials</strong>
-              <span>Choose a clinic, enter the doctor's email and temporary password, then share the doctor login URL: www.docnudge.in/doctor/login</span>
+              <span>Choose a clinic, enter the doctor's email and temporary password, then share the correct app URL: dashboard.docnudge.in</span>
             </div>
             <button style={adminStyles.btnPrimary} onClick={() => setShowAddStaff(true)}>
               <i className="ti ti-user-plus" style={{ fontSize: 14 }} /> Add staff account
@@ -193,6 +203,67 @@ export default function AdminPanel() {
                     <Cell><StatusBadge status={clinic.status} /></Cell>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {tab === "demo" && (
+        <>
+          <div style={adminStyles.leadHero}>
+            <div>
+              <div style={adminStyles.leadEyebrow}><i className="ti ti-rocket" /> Inbound pipeline</div>
+              <strong style={adminStyles.leadTitle}>Landing page demo requests</strong>
+              <p style={adminStyles.leadCopy}>Every request from `www.docnudge.in` appears here with contact details, clinic name, role, city and message.</p>
+            </div>
+            <button style={adminStyles.btn} onClick={loadAll}>
+              <i className="ti ti-refresh" /> Refresh
+            </button>
+          </div>
+          <div style={adminStyles.tableCard}>
+            <table style={adminStyles.table}>
+              <thead>
+                <tr>
+                  <Header>Contact</Header>
+                  <Header>Clinic</Header>
+                  <Header>Role</Header>
+                  <Header>City</Header>
+                  <Header>Message</Header>
+                  <Header>Submitted</Header>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr><td colSpan={6} style={adminStyles.emptyCell}>Loading...</td></tr>
+                ) : demoRequests.length === 0 ? (
+                  <tr><td colSpan={6} style={adminStyles.emptyCell}>No demo requests yet.</td></tr>
+                ) : (
+                  demoRequests.map((request) => (
+                    <tr key={request.id}>
+                      <Cell>
+                        <div style={adminStyles.contactBlock}>
+                          <div style={adminStyles.avatar}>{request.name?.slice(0, 2).toUpperCase() || "DN"}</div>
+                          <div>
+                            <div style={adminStyles.contactName}>{request.name}</div>
+                            <a href={`mailto:${request.email}`} style={adminStyles.linkLine}>{request.email}</a>
+                            <a href={`tel:${request.phone}`} style={adminStyles.linkLine}>{request.phone}</a>
+                          </div>
+                        </div>
+                      </Cell>
+                      <Cell>
+                        <div style={{ fontWeight: 600, color: "#1a1a18" }}>{request.clinic}</div>
+                        <div style={adminStyles.miniMeta}>{request.source || "landing"}</div>
+                      </Cell>
+                      <Cell><span style={adminStyles.roleBadge}>{request.role}</span></Cell>
+                      <Cell>{request.city || "-"}</Cell>
+                      <Cell>
+                        <div style={adminStyles.messageCell}>{request.message || "Requested product walkthrough."}</div>
+                      </Cell>
+                      <Cell>{formatDateTime(request.created_at)}</Cell>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -280,7 +351,7 @@ function AddStaffModal({ clinics, clinic, onClose, onSave }) {
   return (
     <Modal title={clinic ? `Create login for ${clinic.name}` : "Add staff account"} onClose={onClose}>
       <div style={adminStyles.loginHelp}>
-        Doctor login URL: <strong>www.docnudge.in/doctor/login</strong>
+        App URLs: <strong>dashboard.docnudge.in</strong> for doctors, <strong>patient.docnudge.in</strong> for patients, and <strong>admin.docnudge.in</strong> for owner access.
       </div>
       <Field label="Email"><input type="email" style={adminStyles.input} value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} autoFocus /></Field>
       <Field label="Password"><input type="password" style={adminStyles.input} value={form.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} /></Field>
@@ -364,12 +435,23 @@ function Cell({ children }) {
   return <td style={adminStyles.cell}>{children}</td>;
 }
 
+function formatDateTime(value) {
+  if (!value) return "-";
+  return new Date(value).toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 const adminStyles = {
   page: { padding: "28px 32px", fontFamily: "'DM Sans',sans-serif", maxWidth: 1100 },
   header: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 },
   title: { fontSize: 22, fontWeight: 700, color: "#1a1a18", margin: 0 },
   sub: { fontSize: 13, color: "#aaa", marginTop: 3 },
-  statsGrid: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 20 },
+  statsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, marginBottom: 20 },
   statCard: { border: "0.5px solid rgba(0,0,0,0.09)", borderRadius: 10, padding: "14px 16px", background: "#fff" },
   tabs: { display: "flex", gap: 0, borderBottom: "0.5px solid rgba(0,0,0,0.09)", marginBottom: 18 },
   tab: { padding: "9px 16px", border: "none", background: "transparent", cursor: "pointer", fontSize: 13, color: "#888", borderBottom: "2px solid transparent", marginBottom: -1 },
@@ -387,6 +469,15 @@ const adminStyles = {
   actions: { display: "flex", alignItems: "center", gap: 6 },
   credentialGuide: { padding: "13px 16px", borderBottom: "0.5px solid rgba(0,0,0,0.08)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: "#F8FBFA" },
   loginHelp: { marginBottom: 14, padding: "10px 12px", borderRadius: 8, background: "#E1F5EE", color: "#085041", fontSize: 12, lineHeight: 1.5 },
+  leadHero: { marginBottom: 14, padding: "18px 20px", borderRadius: 12, background: "linear-gradient(135deg,#fff,#F6F0FF)", border: "0.5px solid rgba(124,58,237,0.14)", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
+  leadEyebrow: { display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "#7C3AED", fontWeight: 700, marginBottom: 8 },
+  leadTitle: { display: "block", fontSize: 18, color: "#1a1a18", marginBottom: 6 },
+  leadCopy: { fontSize: 13, color: "#64748b", lineHeight: 1.6, maxWidth: 640 },
+  contactBlock: { display: "flex", alignItems: "flex-start", gap: 10 },
+  contactName: { fontWeight: 600, color: "#1a1a18", marginBottom: 3 },
+  linkLine: { display: "block", fontSize: 12, color: "#0C447C", textDecoration: "none", marginBottom: 2 },
+  miniMeta: { fontSize: 11, color: "#94a3b8", textTransform: "capitalize", marginTop: 3 },
+  messageCell: { color: "#475569", lineHeight: 1.55, maxWidth: 260 },
   btnPrimary: { display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", border: "none", borderRadius: 8, background: "#1D9E75", cursor: "pointer", fontSize: 13, color: "#fff", fontWeight: 500 },
   input: { width: "100%", padding: "9px 11px", border: "0.5px solid rgba(0,0,0,0.15)", borderRadius: 7, fontSize: 13, background: "#fff", color: "#1a1a18", outline: "none", fontFamily: "inherit", boxSizing: "border-box" },
   label: { fontSize: 12, color: "#888", marginBottom: 5, display: "block" },
