@@ -140,20 +140,20 @@ export default function Settings({ user }) {
       </section>
 
       <div style={styles.layout}>
-        <aside style={styles.navCard}>
-          {TABS.map(([key, icon, label]) => (
-            <button
-              key={key}
-              style={{ ...styles.navItem, ...(tab === key ? styles.navItemActive : {}) }}
-              onClick={() => changeTab(key)}
-            >
-              <i className={`ti ${icon}`} style={{ fontSize: 16 }} />
-              {label}
-            </button>
-          ))}
-        </aside>
-
         <section style={styles.content}>
+          <div style={styles.tabBar}>
+            {TABS.map(([key, icon, label]) => (
+              <button
+                key={key}
+                style={{ ...styles.navItem, ...(tab === key ? styles.navItemActive : {}) }}
+                onClick={() => changeTab(key)}
+              >
+                <i className={`ti ${icon}`} style={{ fontSize: 16 }} />
+                {label}
+              </button>
+            ))}
+          </div>
+
           {error && <div style={styles.errorBox}>{error}</div>}
 
           {tab === "clinics" && (
@@ -284,7 +284,7 @@ function ClinicsPanel({ clinics, doctors, loading, onAdd, onEdit, onDelete, onAd
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <strong style={styles.infoTitle}>{clinic.name}</strong>
                     <div style={styles.infoMeta}>
-                      {clinic.city || "City not set"} • {clinicDoctors.length} doctor(s) •{" "}
+                      {clinic.city || "City not set"} · {clinicDoctors.length} doctor(s) ·{" "}
                       <span style={styles.planInline}>{(clinic.plan || clinic.subscription_plan || "trial").toUpperCase()}</span>
                     </div>
                   </div>
@@ -301,8 +301,8 @@ function ClinicsPanel({ clinics, doctors, loading, onAdd, onEdit, onDelete, onAd
                 <div style={styles.detailGrid}>
                   <Detail label="Phone" value={clinic.phone || "Not set"} />
                   <Detail label="Email" value={clinic.email || "Not set"} />
-                  <Detail label="Address" value={clinic.address || "Not set"} />
                   <Detail label="Patients" value={String(clinic.patient_count || 0)} />
+                  <Detail label="Address" value={clinic.address || "Not set"} fullWidth />
                 </div>
 
                 {clinicDoctors.length > 0 && (
@@ -313,9 +313,9 @@ function ClinicsPanel({ clinics, doctors, loading, onAdd, onEdit, onDelete, onAd
                         <div key={doctor.id} style={styles.doctorChip}>
                           <i className="ti ti-stethoscope" style={{ fontSize: 12 }} />
                           <strong>{doctor.name || "Doctor"}</strong>
-                          <span style={styles.chipSep}>•</span>
+                          <span style={styles.chipSep}>·</span>
                           <span>{doctor.designation || "General Physician"}</span>
-                          <span style={styles.chipSep}>•</span>
+                          <span style={styles.chipSep}>·</span>
                           <span style={styles.doctorChipMeta}>{doctor.email}</span>
                         </div>
                       ))}
@@ -844,9 +844,9 @@ function Field({ label, children }) {
   );
 }
 
-function Detail({ label, value }) {
+function Detail({ label, value, fullWidth = false }) {
   return (
-    <div style={styles.detailItem}>
+    <div style={{ ...styles.detailItem, ...(fullWidth ? styles.detailItemFull : {}) }}>
       <label style={styles.detailLabel}>{label}</label>
       <span style={styles.detailValue}>{value}</span>
     </div>
@@ -883,22 +883,27 @@ const styles = {
   },
   heroTitle: { margin: 0, fontSize: 28, lineHeight: 1.1, fontWeight: 800 },
   heroCopy: { margin: "6px 0 0", fontSize: 13, color: "#708092", maxWidth: 760, lineHeight: 1.6 },
-  layout: { display: "grid", gridTemplateColumns: "220px minmax(0,1fr)", gap: 18 },
-  navCard: {
-    padding: 10,
+  layout: { display: "grid", gap: 18 },
+  tabBar: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    flexWrap: "wrap",
+    padding: 14,
     borderRadius: 22,
     background: "rgba(255,255,255,0.92)",
     border: "1px solid rgba(12,68,124,0.08)",
     boxShadow: "0 18px 40px rgba(15,23,42,0.06)",
-    height: "fit-content",
   },
   navItem: {
-    width: "100%",
+    flex: "0 0 auto",
     display: "flex",
     alignItems: "center",
     gap: 10,
-    padding: "12px 14px",
-    borderRadius: 16,
+    justifyContent: "center",
+    padding: "14px 18px",
+    minWidth: 180,
+    borderRadius: 18,
     border: "none",
     background: "transparent",
     color: "#56697b",
@@ -1018,8 +1023,17 @@ const styles = {
   infoTitle: { display: "block", fontSize: 15, color: "#11243a" },
   infoMeta: { marginTop: 3, fontSize: 12, color: "#708092" },
   planInline: { fontWeight: 800, color: "#0d9488" },
-  detailGrid: { display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 12, marginBottom: 14 },
-  detailItem: { display: "grid", gap: 3 },
+  detailGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginBottom: 14 },
+  detailItem: {
+    display: "grid",
+    gap: 5,
+    padding: "12px 14px",
+    borderRadius: 14,
+    background: "#ffffff",
+    border: "1px solid rgba(12,68,124,0.08)",
+    minWidth: 0,
+  },
+  detailItemFull: { gridColumn: "1 / -1" },
   detailLabel: {
     fontSize: 11,
     color: "#708092",
@@ -1027,7 +1041,7 @@ const styles = {
     textTransform: "uppercase",
     letterSpacing: "0.07em",
   },
-  detailValue: { fontSize: 13, color: "#31475a" },
+  detailValue: { fontSize: 13, color: "#31475a", lineHeight: 1.5, overflowWrap: "anywhere", wordBreak: "break-word" },
   doctorListWrap: { borderTop: "1px solid rgba(12,68,124,0.07)", paddingTop: 12, marginTop: 4 },
   doctorListLabel: {
     fontSize: 11,
