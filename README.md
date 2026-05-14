@@ -1,5 +1,8 @@
 # DocNudge Admin
 
-This repository is reserved for the standalone admin app.
+Standalone admin workspace for `admin.docnudge.in`.
 
-Current status: the admin experience still lives inside `docnudge-dashboard` and has not been extracted into this repo yet.
+Includes:
+- clinic and staff management
+- owner settings
+- billing and operational admin flows
