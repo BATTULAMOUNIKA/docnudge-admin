@@ -278,7 +278,7 @@ export default function Patients({ clinicId }) {
                           setDeletingPatient(patient);
                         }}
                       >
-                        <i className="ti ti-trash" style={{ fontSize: 12 }} />
+                        <i className="ti ti-trash" style={{ fontSize: 15 }} />
                       </button>
                     </div>
                   </td>
@@ -503,7 +503,7 @@ const styles = {
   conditionTag: { display: "inline-block", padding: "3px 9px", background: "#f1f0ed", borderRadius: 20, fontSize: 12, color: "#555" },
   viewBtn: { display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 10px", border: "1.5px solid #e8eaf0", borderRadius: 8, background: "#fff", cursor: "pointer", fontSize: 12, color: "#64748b", fontWeight: 700 },
   editBtn: { display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 10px", border: "1px solid #bbf7d0", borderRadius: 8, background: "#f0fdf4", cursor: "pointer", fontSize: 12, color: "#16a34a", fontWeight: 700 },
-  deleteBtn: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, border: "1px solid #fecaca", borderRadius: 8, background: "#fef2f2", cursor: "pointer", color: "#ef4444" },
+  deleteBtn: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, border: "1px solid #fecaca", borderRadius: 8, background: "#fef2f2", cursor: "pointer", color: "#ef4444", fontSize: 15 },
   actionGroup: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 },
   bulkBtn: { display: "inline-flex", alignItems: "center", gap: 9, padding: "10px 18px", border: "1.5px solid #e8eaf0", borderRadius: 10, background: "#fff", cursor: "pointer", fontSize: 13, color: "#475569", fontWeight: 800 },
   btnPrimary: { display: "flex", alignItems: "center", gap: 9, padding: "10px 18px", border: "none", borderRadius: 10, background: "linear-gradient(135deg,#16a34a,#22c55e)", cursor: "pointer", fontSize: 13, color: "#fff", fontWeight: 800, boxShadow: "0 4px 14px rgba(22,163,74,0.25)" },
