@@ -1,5 +1,5 @@
 import { Component, useEffect, useState } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { getToken } from "./auth";
 import API from "./api";
 
@@ -43,7 +43,7 @@ export default function App() {
   if (loading) {
     return (
       <div style={sharedStyles.page}>
-        <div style={sharedStyles.card}>Loading admin workspace...</div>
+        <div style={sharedStyles.card}>Loading admin dashboard...</div>
       </div>
     );
   }
@@ -62,10 +62,10 @@ export default function App() {
                 <DomainRedirect
                   target="https://dashboard.docnudge.in"
                   title="Redirecting to dashboard"
-                  copy="This workspace is reserved for the DocNudge owner account."
+                  copy="This screen is reserved for the clinic admin account."
                 />
               ) : (
-                <OwnerLayout user={user} clinicId={resolvedClinicId} />
+                <AdminLayout user={user} clinicId={resolvedClinicId} />
               )
             }
           />
@@ -75,34 +75,52 @@ export default function App() {
   );
 }
 
-function OwnerLayout({ user }) {
+function AdminLayout({ user, clinicId }) {
   return (
-    <div style={ownerStyles.shell}>
-      <aside style={ownerStyles.sidebar}>
-        <div style={ownerStyles.brand}>
-          <img src="/logo.png" alt="DocNudge" style={ownerStyles.logoImg} />
-          <span style={ownerStyles.brandSub}>Owner Console</span>
+    <div style={layoutStyles.shell}>
+      <aside style={layoutStyles.sidebar}>
+        <div style={layoutStyles.brand}>
+          <img src="/logo.png" alt="DocNudge" style={layoutStyles.logoImg} />
+          <span style={layoutStyles.brandSub}>Clinic control</span>
         </div>
-        <nav style={ownerStyles.nav}>
-          <a style={ownerStyles.navItem} href="/">Clinics, staff and billing</a>
-          <a style={ownerStyles.navItem} href="/settings">Admin settings</a>
+
+        <nav style={layoutStyles.nav}>
+          <NavItem to="/" label="Dashboard" />
+          <NavItem to="/settings" label="Admin settings" />
         </nav>
-        <div style={ownerStyles.footer}>
-          <div style={ownerStyles.avatar}>{user?.email?.[0]?.toUpperCase() || "A"}</div>
+
+        <div style={layoutStyles.footer}>
+          <div style={layoutStyles.avatar}>{user?.email?.[0]?.toUpperCase() || "A"}</div>
           <div style={{ minWidth: 0 }}>
-            <div style={ownerStyles.userName}>{user?.email || "Admin"}</div>
-            <div style={ownerStyles.userRole}>System owner</div>
+            <div style={layoutStyles.userName}>{user?.email || "Admin"}</div>
+            <div style={layoutStyles.userRole}>Clinic administrator</div>
           </div>
         </div>
       </aside>
-      <main style={ownerStyles.main}>
+
+      <main style={layoutStyles.main}>
         <Routes>
-          <Route path="/" element={<AdminPanel />} />
-          <Route path="/settings" element={<Settings user={user} />} />
+          <Route path="/" element={<AdminPanel clinicId={clinicId} user={user} />} />
+          <Route path="/settings" element={<Settings user={user} clinicId={clinicId} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
     </div>
+  );
+}
+
+function NavItem({ to, label }) {
+  return (
+    <NavLink
+      to={to}
+      end={to === "/"}
+      style={({ isActive }) => ({
+        ...layoutStyles.navItem,
+        ...(isActive ? layoutStyles.navItemActive : {}),
+      })}
+    >
+      {label}
+    </NavLink>
   );
 }
 
@@ -141,7 +159,7 @@ class AppErrorBoundary extends Component {
     return (
       <div style={sharedStyles.page}>
         <div style={sharedStyles.card}>
-          <div style={sharedStyles.title}>Admin workspace could not load</div>
+          <div style={sharedStyles.title}>Admin dashboard could not load</div>
           <div style={sharedStyles.copy}>Please refresh the page or sign in again.</div>
           <div style={sharedStyles.actions}>
             <button style={sharedStyles.primary} onClick={() => window.location.reload()}>
@@ -177,17 +195,18 @@ const sharedStyles = {
   secondary: { border: "1px solid #d9deea", borderRadius: 8, padding: "9px 14px", background: "#fff", color: "#475569", fontSize: 13, fontWeight: 700, cursor: "pointer" },
 };
 
-const ownerStyles = {
+const layoutStyles = {
   shell: { display: "flex", minHeight: "100vh", background: "#f7f8fc", fontFamily: "'DM Sans', sans-serif" },
-  sidebar: { width: 260, minHeight: "100vh", background: "#0a0d14", color: "#fff", padding: 18, display: "flex", flexDirection: "column", gap: 18, flexShrink: 0 },
+  sidebar: { width: 250, minHeight: "100vh", background: "#0f172a", color: "#fff", padding: 18, display: "flex", flexDirection: "column", gap: 18, flexShrink: 0 },
   brand: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6, paddingBottom: 18, borderBottom: "1px solid rgba(255,255,255,0.1)" },
   logoImg: { width: 150, background: "#fff", borderRadius: 8, padding: 6 },
-  brandSub: { display: "block", color: "#c9a227", fontSize: 12, marginTop: 2 },
+  brandSub: { display: "block", color: "#7dd3fc", fontSize: 12, marginTop: 2 },
   nav: { display: "flex", flexDirection: "column", gap: 8 },
-  navItem: { color: "rgba(255,255,255,0.78)", textDecoration: "none", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 9, padding: "10px 12px", fontSize: 13 },
+  navItem: { color: "rgba(255,255,255,0.78)", textDecoration: "none", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "11px 13px", fontSize: 13, fontWeight: 700 },
+  navItemActive: { background: "linear-gradient(135deg,#0c447c,#0d9488)", color: "#fff", boxShadow: "0 12px 24px rgba(12,68,124,0.22)" },
   footer: { marginTop: "auto", display: "flex", alignItems: "center", gap: 10, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 14 },
-  avatar: { width: 34, height: 34, borderRadius: "50%", background: "#c9a227", color: "#0a0d14", display: "grid", placeItems: "center", fontWeight: 800, flexShrink: 0 },
+  avatar: { width: 34, height: 34, borderRadius: "50%", background: "#7dd3fc", color: "#0f172a", display: "grid", placeItems: "center", fontWeight: 800, flexShrink: 0 },
   userName: { fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  userRole: { fontSize: 11, color: "#c9a227", marginTop: 2 },
+  userRole: { fontSize: 11, color: "#7dd3fc", marginTop: 2 },
   main: { flex: 1, minWidth: 0, overflow: "auto" },
 };

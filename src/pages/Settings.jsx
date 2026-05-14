@@ -1,74 +1,36 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import API from "../api";
 
-const ADMIN_TABS = [
-  ["clinics", "Clinics & staff", "ti-building-hospital"],
-  ["reminders", "Reminders", "ti-bell"],
-  ["whatsapp", "WhatsApp", "ti-brand-whatsapp"],
-  ["account", "Security", "ti-lock"],
+const SPECIALITY_OPTIONS = [
+  "General Physician",
+  "Pediatrics",
+  "Gynecology",
+  "Dermatology",
+  "Orthopedics",
+  "ENT",
+  "Cardiology",
+  "Diabetology",
+  "Pulmonology",
+  "Neurology",
+  "Gastroenterology",
+];
+
+const TABS = [
+  ["clinics", "Clinics"],
+  ["doctors", "Doctor logins"],
+  ["security", "Security"],
 ];
 
 export default function Settings({ user }) {
-  const isAdmin = user?.role === "admin";
-  const [tab, setTab] = useState(isAdmin ? "clinics" : "account");
-
-  if (!isAdmin) {
-    return (
-      <div style={styles.page}>
-        <PageTitle />
-        <div style={styles.adminNotice}>
-          <i className="ti ti-lock" /> Clinic credentials and automation settings are admin-only.
-        </div>
-        <AccountSettings user={user} />
-      </div>
-    );
-  }
-
-  return (
-    <div style={styles.page}>
-      <header style={styles.topbar}>
-        <PageTitle />
-        <div style={styles.adminBadge}><i className="ti ti-shield-check" /> Admin workspace</div>
-      </header>
-
-      <div style={styles.settingsLayout}>
-        <aside style={styles.settingsNav}>
-          {ADMIN_TABS.map(([key, label, icon]) => (
-            <button key={key} style={{ ...styles.navItem, ...(tab === key ? styles.navActive : {}) }} onClick={() => setTab(key)}>
-              <i className={`ti ${icon}`} />
-              <span>{label}</span>
-            </button>
-          ))}
-        </aside>
-
-        <section style={styles.panelStack}>
-          {tab === "clinics" && <ClinicAdminSettings />}
-          {tab === "reminders" && <ReminderSettings />}
-          {tab === "whatsapp" && <WhatsAppSettings />}
-          {tab === "account" && <AccountSettings user={user} />}
-        </section>
-      </div>
-    </div>
-  );
-}
-
-function PageTitle() {
-  return (
-    <div style={styles.pageTitle}>
-      <div style={styles.titleIcon}><i className="ti ti-settings" /></div>
-      <div>
-        <h1 style={styles.title}>Admin Settings</h1>
-        <p style={styles.sub}>Manage clinic setup, reminders, WhatsApp configuration and login security.</p>
-      </div>
-    </div>
-  );
-}
-
-function ClinicAdminSettings() {
+  const [tab, setTab] = useState("clinics");
   const [clinics, setClinics] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showClinicModal, setShowClinicModal] = useState(false);
+  const [editingClinic, setEditingClinic] = useState(null);
+  const [showDoctorModal, setShowDoctorModal] = useState(false);
+  const [selectedClinic, setSelectedClinic] = useState(null);
 
   useEffect(() => {
     load();
@@ -91,266 +53,378 @@ function ClinicAdminSettings() {
     }
   }
 
-  const doctors = users.filter((item) => item.role === "doctor");
-  const staff = users.filter((item) => item.role !== "admin");
+  const doctors = useMemo(() => users.filter((item) => item.role === "doctor"), [users]);
 
   return (
-    <>
-      <div style={styles.summaryGrid}>
-        <SummaryTile label="Clinics" value={clinics.length} icon="ti-building-hospital" tone="purple" />
-        <SummaryTile label="Doctors" value={doctors.length} icon="ti-stethoscope" tone="green" />
-        <SummaryTile label="Staff users" value={staff.length} icon="ti-users" tone="blue" />
+    <div style={styles.page}>
+      <section style={styles.hero}>
+        <div>
+          <div style={styles.eyebrow}>Admin settings</div>
+          <h1 style={styles.heroTitle}>Clinic setup and doctor access</h1>
+          <p style={styles.heroCopy}>New clinics, doctor credentials, and multi-doctor clinic setup all live here now. The dashboard stays focused on overview metrics only.</p>
+        </div>
+      </section>
+
+      <div style={styles.layout}>
+        <aside style={styles.navCard}>
+          {TABS.map(([key, label]) => (
+            <button key={key} style={{ ...styles.navItem, ...(tab === key ? styles.navItemActive : {}) }} onClick={() => setTab(key)}>
+              {label}
+            </button>
+          ))}
+        </aside>
+
+        <section style={styles.content}>
+          {error && <div style={styles.errorBox}>{error}</div>}
+          {tab === "clinics" && (
+            <ClinicsPanel
+              clinics={clinics}
+              doctors={doctors}
+              loading={loading}
+              onAdd={() => setShowClinicModal(true)}
+              onEdit={(clinic) => setEditingClinic(clinic)}
+            />
+          )}
+          {tab === "doctors" && (
+            <DoctorsPanel
+              clinics={clinics}
+              doctors={doctors}
+              loading={loading}
+              onAdd={(clinic) => {
+                setSelectedClinic(clinic || null);
+                setShowDoctorModal(true);
+              }}
+            />
+          )}
+          {tab === "security" && <AccountSettings user={user} />}
+        </section>
       </div>
 
-      <Panel
-        title="Clinics and staff credentials"
-        copy="Review clinic setup and doctor access from the admin dashboard."
-        action={<button style={styles.btnPurple} onClick={load}><i className="ti ti-refresh" /> Refresh</button>}
-      >
-        {error && <div style={styles.errorBox}>{error}</div>}
-        {loading ? (
-          <div style={styles.empty}>Loading clinics...</div>
-        ) : clinics.length === 0 ? (
-          <div style={styles.empty}>No clinics found.</div>
-        ) : (
-          <div style={styles.clinicCards}>
-            {clinics.map((clinic) => {
-              const clinicUsers = users.filter((item) => item.clinic_id === clinic.id);
-              return <ClinicCard key={clinic.id} clinic={clinic} users={clinicUsers} />;
-            })}
-          </div>
-        )}
-      </Panel>
-    </>
+      {showClinicModal && <ClinicModal onClose={() => setShowClinicModal(false)} onSave={() => { setShowClinicModal(false); load(); }} />}
+      {editingClinic && <ClinicModal clinic={editingClinic} onClose={() => setEditingClinic(null)} onSave={() => { setEditingClinic(null); load(); }} />}
+      {showDoctorModal && <DoctorModal clinics={clinics} clinic={selectedClinic} onClose={() => { setShowDoctorModal(false); setSelectedClinic(null); }} onSave={() => { setShowDoctorModal(false); setSelectedClinic(null); load(); }} />}
+    </div>
   );
 }
 
-function ClinicCard({ clinic, users }) {
-  const doctors = users.filter((item) => item.role === "doctor");
+function ClinicsPanel({ clinics, doctors, loading, onAdd, onEdit }) {
   return (
-    <article style={styles.clinicCard}>
-      <div style={styles.clinicCardHeader}>
-        <div style={styles.clinicInfo}>
-          <div style={styles.clinicAvatar}>{initials(clinic.name || "DN")}</div>
-          <div>
-            <strong style={styles.clinicName}>{clinic.name || "DocNudge Clinic"}</strong>
-            <span style={styles.clinicMeta}>{clinic.city || "City not set"} · {doctors.length} doctor{doctors.length === 1 ? "" : "s"}</span>
-          </div>
+    <article style={styles.panel}>
+      <div style={styles.panelHeader}>
+        <div>
+          <h2 style={styles.panelTitle}>Clinic setup</h2>
+          <p style={styles.panelCopy}>Create new clinics here and keep each clinic ready for one or more doctor logins.</p>
         </div>
-        <span style={styles.statusTag}>Active</span>
+        <button style={styles.primaryBtn} onClick={onAdd}><i className="ti ti-plus" /> Add clinic</button>
       </div>
-      <div style={styles.clinicBody}>
-        <div style={styles.detailGrid}>
-          <Detail label="Clinic ID" value={clinic.id || "-"} />
-          <Detail label="Phone" value={clinic.phone || "Not set"} />
-          <Detail label="Plan" value={clinic.plan || "Trial"} />
-        </div>
-        <div style={styles.doctorsTitle}>Doctors and staff access</div>
-        {users.length === 0 ? (
-          <div style={styles.emptySmall}>No staff accounts linked.</div>
+
+      <div style={styles.gridCards}>
+        {loading ? (
+          <div style={styles.emptyState}>Loading clinics...</div>
+        ) : clinics.length === 0 ? (
+          <div style={styles.emptyState}>No clinics created yet.</div>
         ) : (
-          <table style={styles.staffTable}>
-            <thead>
-              <tr>
-                <th style={styles.staffTh}>Name</th>
-                <th style={styles.staffTh}>Role</th>
-                <th style={styles.staffTh}>Email</th>
-                <th style={styles.staffTh}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((item) => (
-                <tr key={item.id || item.email}>
-                  <td style={styles.staffTd}><span style={styles.docAvatar}>{initials(item.name || item.email || "DN")}</span>{item.name || "Staff user"}</td>
-                  <td style={styles.staffTd}><span style={styles.specialistTag}>{item.role || "staff"}</span></td>
-                  <td style={styles.staffTd}><span style={styles.credBox}>{item.email || "-"}</span></td>
-                  <td style={styles.staffTd}><span style={styles.activeDot} />Active</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          clinics.map((clinic) => (
+            <div key={clinic.id} style={styles.infoCard}>
+              <div style={styles.infoTop}>
+                <div>
+                  <strong style={styles.infoTitle}>{clinic.name}</strong>
+                  <div style={styles.infoMeta}>{clinic.city || "City not set"} · {doctors.filter((doctor) => doctor.clinic_id === clinic.id).length} doctor account(s)</div>
+                </div>
+                <button style={styles.smallBtn} onClick={() => onEdit(clinic)}>Edit</button>
+              </div>
+              <div style={styles.detailGrid}>
+                <Detail label="Phone" value={clinic.phone || "Not set"} />
+                <Detail label="Email" value={clinic.email || "Not set"} />
+                <Detail label="Plan" value={(clinic.plan || clinic.subscription_plan || "trial").toUpperCase()} />
+                <Detail label="Patients" value={String(clinic.patient_count || 0)} />
+              </div>
+            </div>
+          ))
         )}
       </div>
     </article>
   );
 }
 
-function ReminderSettings() {
-  const [form, setForm] = useState({ two_days_time: "10:00", day_before_time: "18:00", morning_time: "08:00", missed_days: 3 });
-  const [saved, setSaved] = useState(false);
-
-  async function save() {
-    try {
-      await API.put("/settings/reminders", form);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch {
-      alert("Error saving");
-    }
-  }
-
+function DoctorsPanel({ clinics, doctors, loading, onAdd }) {
   return (
-    <Panel title="Reminder schedule" copy="Control when DocNudge sends follow-up and visit reminders.">
-      <div style={styles.formGrid}>
-        <Field label="2 days before"><Input type="time" value={form.two_days_time} onChange={(v) => setForm((f) => ({ ...f, two_days_time: v }))} /></Field>
-        <Field label="Day before"><Input type="time" value={form.day_before_time} onChange={(v) => setForm((f) => ({ ...f, day_before_time: v }))} /></Field>
-        <Field label="Morning of visit"><Input type="time" value={form.morning_time} onChange={(v) => setForm((f) => ({ ...f, morning_time: v }))} /></Field>
-        <Field label="Missed patient days"><Input type="number" min={1} max={14} value={form.missed_days} onChange={(v) => setForm((f) => ({ ...f, missed_days: Number(v) }))} /></Field>
-      </div>
-      <SaveBtn onClick={save} saved={saved} />
-    </Panel>
-  );
-}
-
-function WhatsAppSettings() {
-  return (
-    <Panel title="WhatsApp / Interakt" copy="Production WhatsApp credentials are handled through secure environment variables.">
-      <div style={styles.integrationCard}>
-        <div style={styles.integrationIcon}><i className="ti ti-brand-whatsapp" /></div>
+    <article style={styles.panel}>
+      <div style={styles.panelHeader}>
         <div>
-          <strong>Interakt API key</strong>
-          <p>Configure `INTERAKT_API_KEY` in the backend environment. Keep the key out of the browser bundle.</p>
+          <h2 style={styles.panelTitle}>Doctor logins</h2>
+          <p style={styles.panelCopy}>Add multiple doctors under one clinic with different specialties and separate credentials.</p>
         </div>
+        <button style={styles.primaryBtn} onClick={() => onAdd(null)}><i className="ti ti-user-plus" /> Add doctor</button>
       </div>
-    </Panel>
+
+      <div style={styles.tableWrap}>
+        <table style={styles.table}>
+          <thead>
+            <tr>
+              <Th>Doctor</Th>
+              <Th>Specialty</Th>
+              <Th>Clinic</Th>
+              <Th>Email</Th>
+              <Th align="right">Action</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td style={styles.emptyCell} colSpan="5">Loading doctor logins...</td></tr>
+            ) : doctors.length === 0 ? (
+              <tr><td style={styles.emptyCell} colSpan="5">No doctor accounts created yet.</td></tr>
+            ) : (
+              doctors.map((doctor) => (
+                <tr key={doctor.id}>
+                  <td style={styles.td}><strong>{doctor.name || "Doctor"}</strong></td>
+                  <td style={styles.td}>{doctor.designation || "General Physician"}</td>
+                  <td style={styles.td}>{clinics.find((clinic) => clinic.id === doctor.clinic_id)?.name || "-"}</td>
+                  <td style={styles.td}>{doctor.email}</td>
+                  <td style={{ ...styles.td, textAlign: "right" }}>
+                    <button style={styles.smallBtn} onClick={() => onAdd(clinics.find((clinic) => clinic.id === doctor.clinic_id) || null)}>Add another for clinic</button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </article>
   );
 }
 
 function AccountSettings({ user }) {
-  const [pw, setPw] = useState({ current: "", new_: "", confirm: "" });
+  const [pw, setPw] = useState({ current: "", next: "", confirm: "" });
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
 
   async function changePassword() {
-    if (pw.new_ !== pw.confirm) {
-      alert("Passwords don't match");
+    if (!pw.current || !pw.next || !pw.confirm) {
+      setError("Fill all password fields.");
       return;
     }
+    if (pw.next !== pw.confirm) {
+      setError("New password and confirm password do not match.");
+      return;
+    }
+    setSaving(true);
+    setSaved(false);
+    setError("");
     try {
-      await API.put("/auth/change-password", { current_password: pw.current, new_password: pw.new_ });
+      await API.put("/auth/change-password", { current_password: pw.current, new_password: pw.next });
+      setPw({ current: "", next: "", confirm: "" });
       setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-      setPw({ current: "", new_: "", confirm: "" });
-    } catch {
-      alert("Error changing password");
+      window.setTimeout(() => setSaved(false), 2200);
+    } catch (err) {
+      setError(err.response?.data?.detail || "Could not change password.");
+    } finally {
+      setSaving(false);
     }
   }
 
   return (
-    <Panel title="Login credentials" copy={user?.email || "Current user"}>
-      <div style={styles.formGrid}>
-        <Field label="Current password"><Input type="password" value={pw.current} onChange={(v) => setPw((p) => ({ ...p, current: v }))} /></Field>
-        <Field label="New password"><Input type="password" value={pw.new_} onChange={(v) => setPw((p) => ({ ...p, new_: v }))} /></Field>
-        <Field label="Confirm password"><Input type="password" value={pw.confirm} onChange={(v) => setPw((p) => ({ ...p, confirm: v }))} /></Field>
-      </div>
-      <SaveBtn onClick={changePassword} saved={saved} label="Update password" />
-    </Panel>
-  );
-}
-
-function Panel({ title, copy, action, children }) {
-  return (
-    <article style={styles.panelCard}>
+    <article style={styles.panel}>
       <div style={styles.panelHeader}>
         <div>
-          <h2 style={styles.panelTitle}>{title}</h2>
-          <p style={styles.panelCopy}>{copy}</p>
+          <h2 style={styles.panelTitle}>Admin password</h2>
+          <p style={styles.panelCopy}>{user?.email || "Current account"}</p>
         </div>
-        {action}
+        {saved && <span style={styles.savedPill}>Updated</span>}
       </div>
-      <div style={styles.panelBody}>{children}</div>
+
+      <div style={styles.formGrid}>
+        <Field label="Current password"><input style={styles.input} type="password" value={pw.current} onChange={(event) => setPw((current) => ({ ...current, current: event.target.value }))} /></Field>
+        <Field label="New password"><input style={styles.input} type="password" value={pw.next} onChange={(event) => setPw((current) => ({ ...current, next: event.target.value }))} /></Field>
+        <Field label="Confirm password"><input style={styles.input} type="password" value={pw.confirm} onChange={(event) => setPw((current) => ({ ...current, confirm: event.target.value }))} /></Field>
+      </div>
+      {error && <div style={styles.errorBox}>{error}</div>}
+      <div style={styles.footer}>
+        <button style={styles.primaryBtn} disabled={saving} onClick={changePassword}>
+          {saving ? "Updating..." : "Update password"}
+        </button>
+      </div>
     </article>
   );
 }
 
-function SummaryTile({ label, value, icon, tone }) {
-  const palette = {
-    purple: ["#f5f3ff", "#7c3aed"],
-    green: ["#f0fdf4", "#16a34a"],
-    blue: ["#eff6ff", "#2563eb"],
-  }[tone];
+function ClinicModal({ clinic, onClose, onSave }) {
+  const [form, setForm] = useState({
+    name: clinic?.name || "",
+    city: clinic?.city || "Hyderabad",
+    plan: clinic?.plan || clinic?.subscription_plan || "trial",
+    phone: clinic?.phone || "",
+    email: clinic?.email || "",
+    address: clinic?.address || "",
+  });
+  const [saving, setSaving] = useState(false);
+  const isEdit = Boolean(clinic);
+
+  async function submit() {
+    if (!form.name.trim()) {
+      alert("Clinic name required");
+      return;
+    }
+    setSaving(true);
+    try {
+      if (isEdit) await API.put(`/clinics/${clinic.id}`, form);
+      else await API.post("/clinics", form);
+      onSave();
+    } catch (error) {
+      alert(error.response?.data?.detail || "Error saving clinic");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
-    <article style={styles.summaryTile}>
-      <div style={{ ...styles.summaryIcon, background: palette[0], color: palette[1] }}><i className={`ti ${icon}`} /></div>
-      <strong>{value}</strong>
-      <span>{label}</span>
-    </article>
+    <Modal title={isEdit ? "Edit clinic" : "Add new clinic"} onClose={onClose}>
+      <Field label="Clinic name"><input style={styles.input} value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} autoFocus /></Field>
+      <Field label="City"><input style={styles.input} value={form.city} onChange={(event) => setForm((current) => ({ ...current, city: event.target.value }))} /></Field>
+      <Field label="Phone"><input style={styles.input} value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} /></Field>
+      <Field label="Email"><input style={styles.input} value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} /></Field>
+      <Field label="Address"><input style={styles.input} value={form.address} onChange={(event) => setForm((current) => ({ ...current, address: event.target.value }))} /></Field>
+      <Field label="Plan">
+        <select style={styles.input} value={form.plan} onChange={(event) => setForm((current) => ({ ...current, plan: event.target.value }))}>
+          <option value="trial">30-day trial</option>
+          <option value="basic">Basic - Rs 999/month</option>
+          <option value="pro">Pro - Rs 1,999/month</option>
+        </select>
+      </Field>
+      <ModalFooter onClose={onClose} onSave={submit} saving={saving} label={isEdit ? "Save clinic" : "Create clinic"} />
+    </Modal>
   );
 }
 
-function Detail({ label, value }) {
-  return <div style={styles.detailItem}><label>{label}</label><span>{value}</span></div>;
+function DoctorModal({ clinics, clinic, onClose, onSave }) {
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    designation: clinic?.designation || SPECIALITY_OPTIONS[0],
+    role: "doctor",
+    clinic_id: clinic?.id ? String(clinic.id) : "",
+  });
+  const [saving, setSaving] = useState(false);
+
+  async function submit() {
+    if (!form.name || !form.email || !form.password || !form.clinic_id) {
+      alert("All fields are required");
+      return;
+    }
+    setSaving(true);
+    try {
+      await API.post("/admin/users", {
+        ...form,
+        clinic_id: Number(form.clinic_id),
+      });
+      onSave();
+    } catch (error) {
+      alert(error.response?.data?.detail || "Error creating doctor account");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal title={clinic ? `Add doctor for ${clinic.name}` : "Add doctor login"} onClose={onClose}>
+      <div style={styles.infoStrip}>Each clinic can have multiple doctor accounts with different specialties.</div>
+      <Field label="Doctor name"><input style={styles.input} value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} autoFocus /></Field>
+      <Field label="Doctor email"><input style={styles.input} type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} /></Field>
+      <Field label="Temporary password"><input style={styles.input} type="password" value={form.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} /></Field>
+      <Field label="Designation">
+        <select style={styles.input} value={form.designation} onChange={(event) => setForm((current) => ({ ...current, designation: event.target.value }))}>
+          {SPECIALITY_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
+        </select>
+      </Field>
+      <Field label="Assign to clinic">
+        <select style={styles.input} value={form.clinic_id} onChange={(event) => setForm((current) => ({ ...current, clinic_id: event.target.value }))}>
+          <option value="">Select clinic...</option>
+          {clinics.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+        </select>
+      </Field>
+      <ModalFooter onClose={onClose} onSave={submit} saving={saving} label="Create doctor login" />
+    </Modal>
+  );
+}
+
+function Modal({ title, onClose, children }) {
+  return (
+    <div style={styles.overlay}>
+      <div style={styles.modal}>
+        <div style={styles.modalHeader}>
+          <span style={{ fontSize: 16, fontWeight: 800, color: "#11243a" }}>{title}</span>
+          <button style={styles.closeBtn} onClick={onClose}><i className="ti ti-x" /></button>
+        </div>
+        <div style={styles.modalBody}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function ModalFooter({ onClose, onSave, saving, label }) {
+  return (
+    <div style={styles.footer}>
+      <button style={styles.ghostBtn} onClick={onClose}>Cancel</button>
+      <button style={styles.primaryBtn} onClick={onSave} disabled={saving}>{saving ? "Saving..." : label}</button>
+    </div>
+  );
 }
 
 function Field({ label, children }) {
   return <label style={styles.field}><span>{label}</span>{children}</label>;
 }
 
-function Input({ value, onChange, ...props }) {
-  return <input style={styles.input} value={value} onChange={(e) => onChange?.(e.target.value)} {...props} />;
+function Detail({ label, value }) {
+  return <div style={styles.detailItem}><label>{label}</label><span>{value}</span></div>;
 }
 
-function SaveBtn({ onClick, saved, label = "Save changes" }) {
-  return <button style={styles.btnPurple} onClick={onClick}>{saved ? "Saved" : label}</button>;
-}
-
-function initials(value) {
-  return String(value)
-    .split(/[\s@.]+/)
-    .filter(Boolean)
-    .map((part) => part[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase() || "DN";
+function Th({ children, align = "left" }) {
+  return <th style={{ ...styles.th, textAlign: align }}>{children}</th>;
 }
 
 const styles = {
-  page: { padding: "24px 28px 34px", minHeight: "100vh", background: "#f4f6fb", fontFamily: "'DM Sans', sans-serif", color: "#1a2035" },
-  topbar: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 24 },
-  pageTitle: { display: "flex", alignItems: "center", gap: 12 },
-  titleIcon: { width: 42, height: 42, borderRadius: 12, background: "#f5f3ff", color: "#7c3aed", display: "grid", placeItems: "center", fontSize: 20 },
-  title: { margin: 0, fontSize: 24, lineHeight: 1, fontWeight: 800 },
-  sub: { margin: "6px 0 0", color: "#64748b", fontSize: 13 },
-  adminBadge: { display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 13px", background: "#f5f3ff", border: "1px solid #ddd6fe", color: "#7c3aed", borderRadius: 999, fontSize: 12, fontWeight: 800 },
-  settingsLayout: { display: "grid", gridTemplateColumns: "220px minmax(0,1fr)", gap: 24 },
-  settingsNav: { background: "#fff", border: "1.5px solid #e8eaf0", borderRadius: 16, padding: 12, height: "fit-content", position: "sticky", top: 84 },
-  navItem: { width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: "none", borderRadius: 10, background: "transparent", color: "#64748b", fontSize: 14, fontWeight: 800, cursor: "pointer", textAlign: "left" },
-  navActive: { background: "#f5f3ff", color: "#7c3aed" },
-  panelStack: { display: "flex", flexDirection: "column", gap: 18, minWidth: 0 },
-  summaryGrid: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 14 },
-  summaryTile: { background: "#fff", border: "1.5px solid #e8eaf0", borderRadius: 16, padding: 18 },
-  summaryIcon: { width: 38, height: 38, borderRadius: 10, display: "grid", placeItems: "center", fontSize: 18, marginBottom: 12 },
-  panelCard: { background: "#fff", border: "1.5px solid #e8eaf0", borderRadius: 16, overflow: "hidden" },
-  panelHeader: { padding: "20px 24px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 },
-  panelTitle: { margin: 0, fontSize: 18, fontWeight: 800 },
-  panelCopy: { margin: "4px 0 0", color: "#64748b", fontSize: 13 },
-  panelBody: { padding: 24 },
-  btnPurple: { display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 18px", border: "none", borderRadius: 10, background: "linear-gradient(135deg,#7c3aed,#a855f7)", color: "#fff", fontSize: 13, fontWeight: 800, cursor: "pointer", boxShadow: "0 4px 14px rgba(124,58,237,0.24)" },
-  clinicCards: { display: "flex", flexDirection: "column", gap: 16 },
-  clinicCard: { border: "1.5px solid #e8eaf0", borderRadius: 14, overflow: "hidden" },
-  clinicCardHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "16px 20px", background: "#fafafa", borderBottom: "1px solid #f1f5f9" },
-  clinicInfo: { display: "flex", alignItems: "center", gap: 12 },
-  clinicAvatar: { width: 42, height: 42, borderRadius: 12, background: "linear-gradient(135deg,#7c3aed,#a855f7)", color: "#fff", display: "grid", placeItems: "center", fontWeight: 800 },
-  clinicName: { display: "block", fontSize: 15, color: "#1a2035" },
-  clinicMeta: { display: "block", marginTop: 3, color: "#64748b", fontSize: 12 },
-  statusTag: { padding: "5px 11px", borderRadius: 999, background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0", fontSize: 12, fontWeight: 800 },
-  clinicBody: { padding: "16px 20px" },
-  detailGrid: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 12, marginBottom: 18 },
+  page: { padding: "28px 30px 38px", minHeight: "100vh", background: "radial-gradient(circle at top left,#eef5ff 0%,#f7faff 35%,#fbf9f3 100%)", fontFamily: "'DM Sans', sans-serif", color: "#11243a" },
+  hero: { padding: "24px 26px", borderRadius: 28, background: "rgba(255,255,255,0.92)", border: "1px solid rgba(12,68,124,0.08)", boxShadow: "0 18px 40px rgba(15,23,42,0.06)", marginBottom: 18 },
+  eyebrow: { fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase", color: "#0d9488", fontWeight: 700, marginBottom: 8 },
+  heroTitle: { margin: 0, fontSize: 30, lineHeight: 1.08, fontWeight: 800 },
+  heroCopy: { margin: "8px 0 0", fontSize: 14, color: "#708092", maxWidth: 740, lineHeight: 1.6 },
+  layout: { display: "grid", gridTemplateColumns: "240px minmax(0,1fr)", gap: 18 },
+  navCard: { padding: 10, borderRadius: 24, background: "rgba(255,255,255,0.92)", border: "1px solid rgba(12,68,124,0.08)", boxShadow: "0 18px 40px rgba(15,23,42,0.06)", height: "fit-content" },
+  navItem: { width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 16, border: "none", background: "transparent", color: "#56697b", fontSize: 14, fontWeight: 700, cursor: "pointer", textAlign: "left" },
+  navItemActive: { background: "linear-gradient(135deg,#0c447c,#0d9488)", color: "#fff", boxShadow: "0 14px 28px rgba(12,68,124,0.18)" },
+  content: { display: "grid", gap: 18 },
+  panel: { borderRadius: 24, background: "rgba(255,255,255,0.92)", border: "1px solid rgba(12,68,124,0.08)", boxShadow: "0 18px 40px rgba(15,23,42,0.06)", padding: 22 },
+  panelHeader: { display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", marginBottom: 18 },
+  panelTitle: { margin: 0, fontSize: 20, fontWeight: 800 },
+  panelCopy: { margin: "5px 0 0", fontSize: 13, color: "#708092", lineHeight: 1.6 },
+  primaryBtn: { display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 16px", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#0c447c,#0d9488)", color: "#fff", fontWeight: 800, cursor: "pointer" },
+  ghostBtn: { display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 16px", borderRadius: 14, border: "1px solid rgba(12,68,124,0.12)", background: "#fff", color: "#0c447c", fontWeight: 700, cursor: "pointer" },
+  smallBtn: { display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 12, border: "1px solid rgba(12,68,124,0.12)", background: "#fff", color: "#0c447c", fontWeight: 700, cursor: "pointer" },
+  gridCards: { display: "grid", gap: 14 },
+  infoCard: { borderRadius: 18, border: "1px solid rgba(12,68,124,0.08)", background: "#fbfdff", padding: 16 },
+  infoTop: { display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", marginBottom: 14 },
+  infoTitle: { display: "block", fontSize: 16, color: "#11243a" },
+  infoMeta: { marginTop: 4, fontSize: 12, color: "#708092" },
+  detailGrid: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 12 },
   detailItem: { display: "grid", gap: 4 },
-  doctorsTitle: { marginBottom: 12, color: "#94a3b8", textTransform: "uppercase", fontSize: 12, fontWeight: 800 },
-  staffTable: { width: "100%", borderCollapse: "collapse" },
-  staffTh: { padding: "9px 12px", background: "#f8fafc", color: "#94a3b8", textTransform: "uppercase", textAlign: "left", fontSize: 11, fontWeight: 800 },
-  staffTd: { padding: "11px 12px", borderBottom: "1px solid #f8fafc", fontSize: 13, color: "#475569" },
-  docAvatar: { width: 30, height: 30, borderRadius: 8, background: "linear-gradient(135deg,#16a34a,#4ade80)", color: "#fff", display: "inline-grid", placeItems: "center", fontSize: 11, fontWeight: 800, marginRight: 8 },
-  specialistTag: { display: "inline-block", padding: "4px 9px", borderRadius: 999, background: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe", fontSize: 12, fontWeight: 800 },
-  credBox: { display: "inline-flex", alignItems: "center", padding: "4px 8px", borderRadius: 6, background: "#f8fafc", border: "1px solid #e8eaf0", fontFamily: "monospace", fontSize: 12, color: "#475569" },
-  activeDot: { width: 8, height: 8, borderRadius: "50%", background: "#22c55e", display: "inline-block", marginRight: 6 },
-  formGrid: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 14, marginBottom: 16 },
-  field: { display: "grid", gap: 7, color: "#64748b", fontSize: 12, fontWeight: 800, textTransform: "uppercase" },
-  input: { width: "100%", padding: "10px 12px", border: "1.5px solid #e8eaf0", borderRadius: 10, background: "#f8fafc", color: "#1a2035", outline: "none", fontSize: 13, fontFamily: "inherit" },
-  integrationCard: { display: "flex", alignItems: "flex-start", gap: 14, border: "1.5px solid #bbf7d0", background: "#f0fdf4", borderRadius: 14, padding: 16, color: "#14532d" },
-  integrationIcon: { width: 42, height: 42, borderRadius: 12, background: "#16a34a", color: "#fff", display: "grid", placeItems: "center", fontSize: 20, flexShrink: 0 },
-  adminNotice: { display: "inline-flex", alignItems: "center", gap: 7, background: "#FAEEDA", border: "0.5px solid #FAC775", color: "#633806", borderRadius: 8, padding: "9px 12px", fontSize: 12, margin: "18px 0" },
-  errorBox: { background: "#fef2f2", border: "1px solid #fecaca", color: "#991b1b", borderRadius: 10, padding: 12, marginBottom: 14, fontSize: 13, fontWeight: 700 },
-  empty: { textAlign: "center", color: "#94a3b8", padding: 34 },
-  emptySmall: { color: "#94a3b8", fontSize: 13, padding: "8px 0" },
+  tableWrap: { overflow: "auto", borderRadius: 18, border: "1px solid rgba(12,68,124,0.08)" },
+  table: { width: "100%", minWidth: 760, borderCollapse: "collapse", background: "#fff" },
+  th: { padding: "14px 16px", background: "#f7fbff", color: "#708092", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: "1px solid rgba(12,68,124,0.08)" },
+  td: { padding: "14px 16px", borderBottom: "1px solid rgba(12,68,124,0.06)", fontSize: 13, color: "#31475a", verticalAlign: "middle" },
+  emptyCell: { padding: 46, color: "#708092", textAlign: "center" },
+  emptyState: { padding: "26px 0", color: "#708092" },
+  formGrid: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 14 },
+  field: { display: "grid", gap: 7, color: "#526677", fontSize: 12, fontWeight: 800, textTransform: "uppercase" },
+  input: { width: "100%", padding: "11px 12px", borderRadius: 14, border: "1px solid rgba(12,68,124,0.12)", background: "#fbfdff", color: "#11243a", outline: "none", fontFamily: "inherit", boxSizing: "border-box" },
+  savedPill: { padding: "7px 12px", borderRadius: 999, background: "#e5fbf7", color: "#0d9488", fontSize: 12, fontWeight: 800 },
+  infoStrip: { marginBottom: 14, display: "flex", alignItems: "center", gap: 8, padding: "12px 14px", borderRadius: 16, background: "#eef5fb", color: "#38536c", fontSize: 13 },
+  errorBox: { marginTop: 0, padding: "11px 13px", borderRadius: 14, background: "#fff3f2", border: "1px solid rgba(184,59,46,0.12)", color: "#b83b2e", fontSize: 13 },
+  footer: { display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 18 },
+  overlay: { position: "fixed", inset: 0, background: "rgba(10,25,47,0.34)", display: "grid", placeItems: "center", padding: 20, zIndex: 1000 },
+  modal: { width: "min(640px,100%)", borderRadius: 24, background: "#fff", border: "1px solid rgba(12,68,124,0.08)", boxShadow: "0 28px 60px rgba(15,23,42,0.16)" },
+  modalHeader: { padding: "18px 22px", borderBottom: "1px solid rgba(12,68,124,0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" },
+  modalBody: { padding: 22, display: "grid", gap: 14 },
+  closeBtn: { border: "none", background: "#f6f8fb", color: "#708092", width: 34, height: 34, borderRadius: 12, cursor: "pointer" },
 };
