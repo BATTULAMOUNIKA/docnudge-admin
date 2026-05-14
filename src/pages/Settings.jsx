@@ -48,21 +48,23 @@ const TABS = [
   ["profile", "ti-user-circle", "My profile"],
 ];
 
-const DUPLICATE_DOCTOR_EMAIL_MESSAGE = "This login email is already assigned to another account. Please use a different email for each doctor login.";
+const DUPLICATE_DOCTOR_LOGIN_MESSAGE = "This login ID is already assigned to another account. Please use a different login ID.";
 
 function resolveTab(value) {
   return TABS.some(([key]) => key === value) ? value : "clinics";
 }
 
-function doctorEmailErrorMessage(detail) {
+function doctorLoginErrorMessage(detail) {
   const message = String(detail || "").toLowerCase();
   if (
-    message.includes("email already exists") ||
+    message.includes("login id is already assigned") ||
+    message.includes("login id already exists") ||
     message.includes("unique constraint failed") ||
-    message.includes("users.email") ||
+    message.includes("users.login_id") ||
+    message.includes("ix_users_login_id") ||
     message.includes("already assigned to another account")
   ) {
-    return DUPLICATE_DOCTOR_EMAIL_MESSAGE;
+    return DUPLICATE_DOCTOR_LOGIN_MESSAGE;
   }
   return detail || "Error saving doctor account.";
 }
@@ -88,6 +90,7 @@ function doctorFormFrom(clinics, clinic, doctor) {
   return {
     name: doctor?.name || "",
     email: doctor?.email || "",
+    login_id: doctor?.login_id || doctor?.email || "",
     password: "",
     phone: doctor?.phone || "",
     designation: knownSpeciality ? rawSpeciality : "Other",
@@ -205,7 +208,7 @@ export default function Settings({ user }) {
               }}
               onEdit={(doctor) => setEditingDoctor(doctor)}
               onDelete={async (doctor) => {
-                const name = doctor.name || doctor.email || "this doctor";
+                const name = doctor.name || doctor.login_id || doctor.email || "this doctor";
                 if (!window.confirm(`Delete doctor account for "${name}"?`)) return;
                 try {
                   await API.delete(`/admin/users/${doctor.id}`);
@@ -331,7 +334,13 @@ function ClinicsPanel({ clinics, doctors, loading, onAdd, onEdit, onDelete, onAd
                           <span style={styles.chipSep}>·</span>
                           <span>{doctor.designation || "General Physician"}</span>
                           <span style={styles.chipSep}>·</span>
-                          <span style={styles.doctorChipMeta}>{doctor.email}</span>
+                          <span style={styles.doctorChipMeta}>{doctor.login_id || doctor.email}</span>
+                          {doctor.email && (
+                            <>
+                              <span style={styles.chipSep}>·</span>
+                              <span style={styles.doctorChipMeta}>{doctor.email}</span>
+                            </>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -388,7 +397,8 @@ function DoctorsPanel({ clinics, doctors, loading, onAdd, onEdit, onDelete }) {
               <Th>Doctor</Th>
               <Th>Specialty</Th>
               <Th>Clinic</Th>
-              <Th>Email / Login</Th>
+              <Th>Login ID</Th>
+              <Th>Contact email</Th>
               <Th>Phone</Th>
               <Th align="right">Actions</Th>
             </tr>
@@ -396,13 +406,13 @@ function DoctorsPanel({ clinics, doctors, loading, onAdd, onEdit, onDelete }) {
           <tbody>
             {loading ? (
               <tr>
-                <td style={styles.emptyCell} colSpan="6">
+                <td style={styles.emptyCell} colSpan="7">
                   Loading doctor accounts...
                 </td>
               </tr>
             ) : filteredDoctors.length === 0 ? (
               <tr>
-                <td style={styles.emptyCell} colSpan="6">
+                <td style={styles.emptyCell} colSpan="7">
                   No doctor accounts found.
                 </td>
               </tr>
@@ -417,7 +427,8 @@ function DoctorsPanel({ clinics, doctors, loading, onAdd, onEdit, onDelete }) {
                   </td>
                   <td style={styles.td}>{doctor.designation || "General Physician"}</td>
                   <td style={styles.td}>{clinics.find((clinic) => clinic.id === doctor.clinic_id)?.name || "-"}</td>
-                  <td style={styles.td}>{doctor.email}</td>
+                  <td style={styles.td}>{doctor.login_id || "-"}</td>
+                  <td style={styles.td}>{doctor.email || "-"}</td>
                   <td style={styles.td}>{doctor.phone || "-"}</td>
                   <td style={{ ...styles.td, textAlign: "right" }}>
                     <div style={{ ...styles.actionGroup, justifyContent: "flex-end" }}>
@@ -698,8 +709,8 @@ function DoctorModal({ clinics, clinic, doctor, onClose, onSave }) {
   }
 
   async function submit() {
-    if (!form.name.trim() || !form.email.trim() || !form.clinic_id) {
-      setError("Doctor name, login email, and clinic are required.");
+    if (!form.name.trim() || !form.login_id.trim() || !form.email.trim() || !form.clinic_id) {
+      setError("Doctor name, login ID, contact email, and clinic are required.");
       return;
     }
     if (!isEdit && !form.password) {
@@ -715,6 +726,7 @@ function DoctorModal({ clinics, clinic, doctor, onClose, onSave }) {
     const payload = {
       name: form.name.trim(),
       email: form.email.trim(),
+      login_id: form.login_id.trim().toLowerCase(),
       phone: form.phone.trim(),
       designation: form.designation === "Other" ? form.customDesignation.trim() : form.designation,
       role: "doctor",
@@ -733,17 +745,17 @@ function DoctorModal({ clinics, clinic, doctor, onClose, onSave }) {
       }
       onSave();
     } catch (err) {
-      setError(doctorEmailErrorMessage(err.response?.data?.detail));
+      setError(doctorLoginErrorMessage(err.response?.data?.detail));
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <Modal title={isEdit ? `Edit doctor - ${doctor.name || doctor.email}` : clinic ? `Add doctor for ${clinic.name}` : "Add doctor login"} onClose={onClose}>
+    <Modal title={isEdit ? `Edit doctor - ${doctor.name || doctor.login_id || doctor.email}` : clinic ? `Add doctor for ${clinic.name}` : "Add doctor login"} onClose={onClose}>
       <div style={styles.infoStrip}>
         <i className="ti ti-info-circle" style={{ fontSize: 15 }} />
-        One clinic can have multiple doctors with separate credentials and specialties.
+        One clinic can have multiple doctors sharing one contact email, but each doctor still needs a unique login ID.
       </div>
 
       <div style={styles.twoCol}>
@@ -799,16 +811,15 @@ function DoctorModal({ clinics, clinic, doctor, onClose, onSave }) {
       </Field>
 
       <div style={styles.twoCol}>
-        <Field label="Login email *">
+        <Field label="Login ID *">
           <div style={styles.fieldControl}>
             <input
               style={styles.input}
-              type="email"
-              value={form.email}
-              onChange={(event) => updateField("email", event.target.value)}
-              placeholder="doctor@clinic.com"
+              value={form.login_id}
+              onChange={(event) => updateField("login_id", event.target.value)}
+              placeholder="dr-niharika-reddy"
             />
-            <div style={styles.fieldHint}>Each doctor login needs a unique email address for sign-in.</div>
+            <div style={styles.fieldHint}>This is the unique username the doctor will use to sign in.</div>
           </div>
         </Field>
         <Field label={isEdit ? "New password (leave blank to keep)" : "Temporary password *"}>
@@ -819,6 +830,27 @@ function DoctorModal({ clinics, clinic, doctor, onClose, onSave }) {
             onChange={(event) => updateField("password", event.target.value)}
             placeholder={isEdit ? "Leave blank to keep current" : "Minimum 8 characters"}
           />
+        </Field>
+      </div>
+
+      <div style={styles.twoCol}>
+        <Field label="Contact email *">
+          <div style={styles.fieldControl}>
+            <input
+              style={styles.input}
+              type="email"
+              value={form.email}
+              onChange={(event) => updateField("email", event.target.value)}
+              placeholder="shared@clinic.com"
+            />
+            <div style={styles.fieldHint}>This email can be shared across multiple doctors in the same clinic.</div>
+          </div>
+        </Field>
+        <Field label="Login preview">
+          <div style={styles.previewBox}>
+            <strong>{form.login_id || "doctor-login-id"}</strong>
+            <span>{form.email || "shared@clinic.com"}</span>
+          </div>
         </Field>
       </div>
 
@@ -1103,7 +1135,7 @@ const styles = {
     flexShrink: 0,
   },
   tableWrap: { overflow: "auto", borderRadius: 18, border: "1px solid rgba(12,68,124,0.08)" },
-  table: { width: "100%", minWidth: 800, borderCollapse: "collapse", background: "#fff" },
+  table: { width: "100%", minWidth: 980, borderCollapse: "collapse", background: "#fff" },
   th: {
     padding: "13px 16px",
     background: "#f7fbff",
@@ -1160,6 +1192,16 @@ const styles = {
   },
   fieldControl: { display: "grid", gap: 6 },
   fieldHint: { fontSize: 12, fontWeight: 500, textTransform: "none", letterSpacing: "normal", color: "#708092", lineHeight: 1.4 },
+  previewBox: {
+    display: "grid",
+    gap: 6,
+    minHeight: 48,
+    padding: "11px 13px",
+    borderRadius: 13,
+    border: "1px solid rgba(12,68,124,0.14)",
+    background: "#f5fbff",
+    color: "#11243a",
+  },
   input: {
     width: "100%",
     padding: "11px 13px",

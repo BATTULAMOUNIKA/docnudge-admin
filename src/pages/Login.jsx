@@ -3,23 +3,23 @@ import{login}from"../api";
 import{saveToken}from"../auth";
 
 export default function Login({onLogin}){
-  const[email,setEmail]=useState("");
+  const[identifier,setIdentifier]=useState("");
   const[pass,setPass]=useState("");
   const[err,setErr]=useState("");
   const[loading,setLoading]=useState(false);
 
   async function submit(){
-    if(!email||!pass){setErr("Email and password required.");return;}
+    if(!identifier||!pass){setErr("Login ID or email and password required.");return;}
     setLoading(true);setErr("");
     try{
-      const{data}=await login(email,pass);
+      const{data}=await login(identifier,pass);
       saveToken(data.access_token,data.role,data.clinic_id);
       onLogin(data.role);
     }catch(error){
       const message =
         error?.response?.status >= 500
           ? "Backend is unavailable right now. Please try again in a moment."
-          : error?.response?.data?.detail || "Invalid email or password.";
+          : error?.response?.data?.detail || "Invalid login ID, email, or password.";
       setErr(message);
     }finally{
       setLoading(false);
@@ -48,9 +48,9 @@ export default function Login({onLogin}){
       <section style={s.card}>
         <div>
           <h2 style={s.h2}>Sign in to DocNudge</h2>
-          <p style={s.sub}>Enter your doctor or admin workspace.</p>
+          <p style={s.sub}>Enter your doctor or admin workspace with your login ID or email.</p>
         </div>
-        <label style={s.field}>Email<input style={s.input} type="email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} placeholder="admin@docnudge.in"/></label>
+        <label style={s.field}>Login ID or email<input style={s.input} value={identifier} onChange={e=>setIdentifier(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} placeholder="admin@docnudge.in or dr-niharika-reddy"/></label>
         <label style={s.field}>Password<input style={s.input} type="password" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} placeholder="Password"/></label>
         {err&&<div style={s.error}>{err}</div>}
         <button style={s.button} onClick={submit} disabled={loading}>{loading?"Signing in...":"Enter Workspace"}</button>

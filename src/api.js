@@ -21,8 +21,8 @@ API.interceptors.response.use(
   }
 );
 
-export const login = (email, password) =>
-  API.post("/auth/login", new URLSearchParams({ username: email, password }), { headers: { "Content-Type": "application/x-www-form-urlencoded" } });
+export const login = (identifier, password) =>
+  API.post("/auth/login", new URLSearchParams({ username: identifier, password }), { headers: { "Content-Type": "application/x-www-form-urlencoded" } });
 export const getClinics = () => API.get("/clinics");
 export const createClinic = (name) => API.post(`/clinics?name=${encodeURIComponent(name)}`);
 export const getAdminUsers = () => API.get("/admin/users");
