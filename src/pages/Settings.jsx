@@ -48,8 +48,23 @@ const TABS = [
   ["profile", "ti-user-circle", "My profile"],
 ];
 
+const DUPLICATE_DOCTOR_EMAIL_MESSAGE = "This login email is already assigned to another account. Please use a different email for each doctor login.";
+
 function resolveTab(value) {
   return TABS.some(([key]) => key === value) ? value : "clinics";
+}
+
+function doctorEmailErrorMessage(detail) {
+  const message = String(detail || "").toLowerCase();
+  if (
+    message.includes("email already exists") ||
+    message.includes("unique constraint failed") ||
+    message.includes("users.email") ||
+    message.includes("already assigned to another account")
+  ) {
+    return DUPLICATE_DOCTOR_EMAIL_MESSAGE;
+  }
+  return detail || "Error saving doctor account.";
 }
 
 function clinicFormFrom(clinic) {
@@ -718,7 +733,7 @@ function DoctorModal({ clinics, clinic, doctor, onClose, onSave }) {
       }
       onSave();
     } catch (err) {
-      setError(err.response?.data?.detail || "Error saving doctor account.");
+      setError(doctorEmailErrorMessage(err.response?.data?.detail));
     } finally {
       setSaving(false);
     }
@@ -793,7 +808,7 @@ function DoctorModal({ clinics, clinic, doctor, onClose, onSave }) {
               onChange={(event) => updateField("email", event.target.value)}
               placeholder="doctor@clinic.com"
             />
-            <div style={styles.fieldHint}>Each doctor login needs a unique email.</div>
+            <div style={styles.fieldHint}>Each doctor login needs a unique email address for sign-in.</div>
           </div>
         </Field>
         <Field label={isEdit ? "New password (leave blank to keep)" : "Temporary password *"}>
