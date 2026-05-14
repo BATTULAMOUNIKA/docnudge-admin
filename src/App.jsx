@@ -1,5 +1,5 @@
 import { Component, useEffect, useState } from "react";
-import { BrowserRouter, NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Link, NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { getToken } from "./auth";
 import API from "./api";
 
@@ -89,13 +89,15 @@ function AdminLayout({ user, clinicId }) {
           <NavItem to="/settings" label="Admin settings" />
         </nav>
 
-        <div style={layoutStyles.footer}>
-          <div style={layoutStyles.avatar}>{user?.email?.[0]?.toUpperCase() || "A"}</div>
-          <div style={{ minWidth: 0 }}>
-            <div style={layoutStyles.userName}>{user?.email || "Admin"}</div>
-            <div style={layoutStyles.userRole}>Clinic administrator</div>
+        <Link to="/settings?tab=profile" style={layoutStyles.footerLink}>
+          <div style={layoutStyles.footer}>
+            <div style={layoutStyles.avatar}>{user?.email?.[0]?.toUpperCase() || "A"}</div>
+            <div style={{ minWidth: 0 }}>
+              <div style={layoutStyles.userName}>{user?.email || "Admin"}</div>
+              <div style={layoutStyles.userRole}>Clinic administrator</div>
+            </div>
           </div>
-        </div>
+        </Link>
       </aside>
 
       <main style={layoutStyles.main}>
@@ -205,6 +207,7 @@ const layoutStyles = {
   navItem: { color: "rgba(255,255,255,0.78)", textDecoration: "none", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "11px 13px", fontSize: 13, fontWeight: 700 },
   navItemActive: { background: "linear-gradient(135deg,#0c447c,#0d9488)", color: "#fff", boxShadow: "0 12px 24px rgba(12,68,124,0.22)" },
   footer: { marginTop: "auto", display: "flex", alignItems: "center", gap: 10, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 14 },
+  footerLink: { marginTop: "auto", textDecoration: "none", color: "inherit" },
   avatar: { width: 34, height: 34, borderRadius: "50%", background: "#7dd3fc", color: "#0f172a", display: "grid", placeItems: "center", fontWeight: 800, flexShrink: 0 },
   userName: { fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   userRole: { fontSize: 11, color: "#7dd3fc", marginTop: 2 },
