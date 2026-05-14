@@ -675,25 +675,28 @@ function DoctorModal({ clinics, clinic, doctor, onClose, onSave }) {
   const isEdit = Boolean(doctor);
   const [form, setForm] = useState(() => doctorFormFrom(clinics, clinic, doctor));
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   function updateField(key, value) {
     setForm((current) => ({ ...current, [key]: value }));
+    if (error) setError("");
   }
 
   async function submit() {
     if (!form.name.trim() || !form.email.trim() || !form.clinic_id) {
-      alert("Doctor name, email, and clinic are required");
+      setError("Doctor name, login email, and clinic are required.");
       return;
     }
     if (!isEdit && !form.password) {
-      alert("Temporary password is required");
+      setError("Temporary password is required.");
       return;
     }
     if (form.designation === "Other" && !form.customDesignation.trim()) {
-      alert("Please enter a specialization");
+      setError("Please enter a specialization.");
       return;
     }
 
+    setError("");
     const payload = {
       name: form.name.trim(),
       email: form.email.trim(),
@@ -715,7 +718,7 @@ function DoctorModal({ clinics, clinic, doctor, onClose, onSave }) {
       }
       onSave();
     } catch (err) {
-      alert(err.response?.data?.detail || "Error saving doctor account");
+      setError(err.response?.data?.detail || "Error saving doctor account.");
     } finally {
       setSaving(false);
     }
@@ -782,13 +785,16 @@ function DoctorModal({ clinics, clinic, doctor, onClose, onSave }) {
 
       <div style={styles.twoCol}>
         <Field label="Login email *">
-          <input
-            style={styles.input}
-            type="email"
-            value={form.email}
-            onChange={(event) => updateField("email", event.target.value)}
-            placeholder="doctor@clinic.com"
-          />
+          <div style={styles.fieldControl}>
+            <input
+              style={styles.input}
+              type="email"
+              value={form.email}
+              onChange={(event) => updateField("email", event.target.value)}
+              placeholder="doctor@clinic.com"
+            />
+            <div style={styles.fieldHint}>Each doctor login needs a unique email.</div>
+          </div>
         </Field>
         <Field label={isEdit ? "New password (leave blank to keep)" : "Temporary password *"}>
           <input
@@ -800,6 +806,8 @@ function DoctorModal({ clinics, clinic, doctor, onClose, onSave }) {
           />
         </Field>
       </div>
+
+      {error && <div style={styles.errorBox}>{error}</div>}
 
       <ModalFooter onClose={onClose} onSave={submit} saving={saving} label={isEdit ? "Save changes" : "Create doctor login"} />
     </Modal>
@@ -1135,6 +1143,8 @@ const styles = {
     textTransform: "uppercase",
     letterSpacing: "0.05em",
   },
+  fieldControl: { display: "grid", gap: 6 },
+  fieldHint: { fontSize: 12, fontWeight: 500, textTransform: "none", letterSpacing: "normal", color: "#708092", lineHeight: 1.4 },
   input: {
     width: "100%",
     padding: "11px 13px",
